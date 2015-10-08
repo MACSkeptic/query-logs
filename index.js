@@ -28,7 +28,7 @@ Promise.promisifyAll(fs);
 
 const logFileName = moment.utc().format(`[${argv.app}_log_]YYYY-MM-DDTHH_mm_ss[.log]`);
 
-function getLogs(logGroupName, nextToken) {
+function createParams() {
   const filterPattern = argv.level ?
     `{ $.name = "${argv.app}" && $.level >= ${+argv.level} }` : `{ $.name = "${argv.app}" }`;
 
@@ -41,14 +41,6 @@ function getLogs(logGroupName, nextToken) {
 
   const interleaved = true;
 
-  const params = { logGroupName, filterPattern, startTime, interleaved, endTime };
-
-  if (nextToken) {
-    _.assign(params, { nextToken });
-  }
-
-  console.log('params:', params);
-
   console.log('=======================================================');
   console.log('-   app:', argv.app);
   console.log('- level:', argv.level ? `>= ${argv.level}` : 'any');
@@ -58,7 +50,20 @@ function getLogs(logGroupName, nextToken) {
   console.log('-    to:', moment(endTime).fromNow());
   console.log('=======================================================');
 
-  return logs.filterLogEventsAsync(params);
+  return { interleaved, startTime, endTime, filterPattern };
+}
+
+const params = createParams();
+
+function getLogs(logGroupName, nextToken) {
+  const currentParams = _.assign({}, params, { logGroupName });
+
+  if (nextToken) {
+    console.log('nextToken:', nextToken);
+    _.assign(params, { nextToken });
+  }
+
+  return logs.filterLogEventsAsync(currentParams);
 }
 
 function contentsFromEvent(event) {
