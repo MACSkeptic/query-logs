@@ -7,6 +7,7 @@ const config = {apiVersion: '2014-03-28', region: 'us-west-2'};
 
 const argv = require('yargs')
   .string('app').default('app', '')
+  .string('bunnies').default('bunnies', 'yes')
   .string('last').default('last', '')
   .string('start').default('start', '')
   .string('end').default('end', '')
@@ -20,6 +21,7 @@ if (process.env['AWS_ACCESS_KEY_ID']) {
   _.assign(config, { accessKeyId, secretAccessKey, sessionToken })
 }
 
+const bunnies = argv.bunnies !== 'no';
 const logs = new AWS.CloudWatchLogs(config);
 console.log('using:', config, '\n');
 
@@ -67,6 +69,9 @@ function getLogs(logGroupName, nextToken) {
 }
 
 function contentsFromEvent(event) {
+  if (bunnies) {
+    return event;
+  }
   try {
     return JSON.stringify(JSON.parse(event), null, '  ');
   } catch (e) {
@@ -76,6 +81,9 @@ function contentsFromEvent(event) {
 
 function writeContentsFrom(events) {
   return Promise.all(_.pluck(events, 'message').map(contentsFromEvent).map(content => {
+    if (bunnies) {
+      return fs.appendFileAsync(logFileName, `${content}\n`, 'utf8');
+    }
     return fs.appendFileAsync(logFileName, `${content},\n`, 'utf8');
   }));
 }
@@ -99,12 +107,26 @@ function getLogsAndLog(logGroupName, nextToken) {
   });
 }
 
+function open() {
+  if (bunnies) {
+    return fs.writeFileAsync(logFileName, '{}\n', 'utf8');
+  }
+  return fs.writeFileAsync(logFileName, '{"logs": [\n', 'utf8');
+}
+
+function close() {
+  if (bunnies) {
+    return fs.appendFileAsync(logFileName, '{}', 'utf8');
+  }
+  return fs.appendFileAsync(logFileName, '""\n]}', 'utf8');
+}
+
 export function go() {
   console.log('----------------------------------------------------');
   console.log('writing to', logFileName);
   console.log('----------------------------------------------------\n');
 
-  fs.writeFileAsync(logFileName, '{"logs": [\n', 'utf8').then(res => {
+  open().then(res => {
     return logs.describeLogGroupsAsync({});
   }).then(res => {
     return _.get(res, 'logGroups[0].logGroupName');
@@ -112,7 +134,7 @@ export function go() {
     console.log('log group name:', logGroupName);
     return getLogsAndLog(logGroupName);
   }).then(res => {
-    return fs.appendFileAsync(logFileName, '""\n]}', 'utf8').thenReturn(res);
+    return close().thenReturn(res);
   }).then(res => {
     console.log('\n====\ndone\n====\n\ngo try:\ncat', logFileName, '| prettyjson');
   }).catch(err => {
