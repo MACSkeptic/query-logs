@@ -20,6 +20,7 @@ if (process.env['AWS_ACCESS_KEY_ID']) {
 }
 
 const logs = new AWS.CloudWatchLogs(config);
+console.log('using:', config, '\n');
 
 Promise.promisifyAll(logs);
 Promise.promisifyAll(fs);
