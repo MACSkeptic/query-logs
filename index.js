@@ -7,6 +7,7 @@ const config = {apiVersion: '2014-03-28', region: 'us-west-2'};
 
 const argv = require('yargs')
   .string('app').default('app', '')
+  .string('last').default('last', '')
   .string('start').default('start', '')
   .string('end').default('end', '')
   .string('level').default('level', '')
@@ -31,8 +32,9 @@ function getLogs(logGroupName, nextToken) {
   const filterPattern = argv.level ?
     `{ $.name = "${argv.app}" && $.level = ${argv.level} }` : `{ $.name = "${argv.app}" }`;
 
-  const startTime = argv.start ?
-    moment(argv.start).valueOf() : moment().add(-1, 'days').valueOf();
+  const startTime = (argv.start && moment(argv.start).valueOf()) ||
+    (argv.last && moment().add(-(+argv.last), 'minutes').valueOf()) ||
+    (moment().add(-1, 'days').valueOf());
 
   const endTime = argv.end ?
     moment(argv.end).valueOf() : moment().valueOf();
