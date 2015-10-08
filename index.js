@@ -30,7 +30,7 @@ const logFileName = moment.utc().format(`[${argv.app}_log_]YYYY-MM-DDTHH_mm_ss[.
 
 function getLogs(logGroupName, nextToken) {
   const filterPattern = argv.level ?
-    `{ $.name = "${argv.app}" && $.level = ${argv.level} }` : `{ $.name = "${argv.app}" }`;
+    `{ $.name = "${argv.app}" && $.level >= ${+argv.level} }` : `{ $.name = "${argv.app}" }`;
 
   const startTime = (argv.start && moment(argv.start).valueOf()) ||
     (argv.last && moment().add(-(+argv.last), 'minutes').valueOf()) ||
@@ -47,7 +47,16 @@ function getLogs(logGroupName, nextToken) {
     _.assign(params, { nextToken });
   }
 
-  console.log('using params', params);
+  console.log('params:', params);
+
+  console.log('=======================================================');
+  console.log('-   app:', argv.app);
+  console.log('- level:', argv.level ? `>= ${argv.level}` : 'any');
+  console.log('- start:', moment(startTime).format());
+  console.log('-   end:', moment(endTime).format());
+  console.log('-  from:', moment(startTime).fromNow());
+  console.log('-    to:', moment(endTime).fromNow());
+  console.log('=======================================================');
 
   return logs.filterLogEventsAsync(params);
 }
