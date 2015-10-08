@@ -109,6 +109,7 @@ export function go() {
   }).then(res => {
     return _.get(res, 'logGroups[0].logGroupName');
   }).then(logGroupName => {
+    console.log('log group name:', logGroupName);
     return getLogsAndLog(logGroupName);
   }).then(res => {
     return fs.appendFileAsync(logFileName, '""\n]}', 'utf8').thenReturn(res);
