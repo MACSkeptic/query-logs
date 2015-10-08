@@ -49,6 +49,16 @@ function getLogs(logGroupName, nextToken) {
   return logs.filterLogEventsAsync(params);
 }
 
+function contentsFrom(events) {
+  return _.pluck(events, 'message').map(event => {
+    try {
+      return JSON.stringify(JSON.parse(event), null, '  ');
+    } catch (e) {
+      return event;
+    }
+  }).join('\n');
+}
+
 function getLogsAndLog(logGroupName, nextToken) {
   return getLogs(logGroupName, nextToken).then(res => {
     return {
@@ -56,7 +66,7 @@ function getLogsAndLog(logGroupName, nextToken) {
       nextToken: _.get(res, 'nextToken')
     };
   }).then(res => {
-    const contents = _.pluck(res.events, 'message').join('\n');
+    const contents = contentsFrom(res.events || []);
     return fs.appendFileAsync(logFileName, contents, 'utf8').thenReturn(res);
   }).then(res => {
     if (res.nextToken) {
@@ -75,6 +85,7 @@ export function go() {
   }).then(logGroupName => {
     return getLogsAndLog(logGroupName);
   }).then(res => {
+    console.log('done');
   }).catch(err => {
     console.log(err);
   });
