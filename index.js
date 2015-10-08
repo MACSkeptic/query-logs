@@ -49,14 +49,18 @@ function getLogs(logGroupName, nextToken) {
   return logs.filterLogEventsAsync(params);
 }
 
-function contentsFrom(events) {
-  return _.pluck(events, 'message').map(event => {
-    try {
-      return JSON.stringify(JSON.parse(event), null, '  ');
-    } catch (e) {
-      return event;
-    }
-  }).join('\n');
+function contentsFromEvent(event) {
+  try {
+    return JSON.stringify(JSON.parse(event), null, '  ');
+  } catch (e) {
+    return `"${event}"`;
+  }
+}
+
+function writeContentsFrom(events) {
+  return Promise.all(_.pluck(events, 'message').map(contentsFromEvent).map(content => {
+    return fs.appendFileAsync(logFileName, `${content},\n`, 'utf8');
+  }));
 }
 
 function getLogsAndLog(logGroupName, nextToken) {
@@ -66,26 +70,33 @@ function getLogsAndLog(logGroupName, nextToken) {
       nextToken: _.get(res, 'nextToken')
     };
   }).then(res => {
-    const contents = contentsFrom(res.events || []);
-    return fs.appendFileAsync(logFileName, contents, 'utf8').thenReturn(res);
+    return writeContentsFrom(res.events || []).thenReturn(res);
   }).then(res => {
-    if (res.nextToken) {
-      return getLogsAndLog(logGroupName, res.nextToken);
+    const nextToken = res.nextToken;
+
+    if (!nextToken) {
+      return res;
     }
+
+    return getLogsAndLog(logGroupName, nextToken).thenReturn(res);
   });
 }
 
 export function go() {
+  console.log('----------------------------------------------------');
   console.log('writing to', logFileName);
+  console.log('----------------------------------------------------\n');
 
-  fs.writeFileAsync(logFileName, '', 'utf8').then(res => {
+  fs.writeFileAsync(logFileName, '{"logs": [\n', 'utf8').then(res => {
     return logs.describeLogGroupsAsync({});
   }).then(res => {
     return _.get(res, 'logGroups[0].logGroupName');
   }).then(logGroupName => {
     return getLogsAndLog(logGroupName);
   }).then(res => {
-    console.log('done');
+    return fs.appendFileAsync(logFileName, '""\n]}', 'utf8').thenReturn(res);
+  }).then(res => {
+    console.log('\n====\ndone\n====\n\ngo try:\ncat', logFileName, '| prettyjson');
   }).catch(err => {
     console.log(err);
   });
