@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+'use strict';
+
+require('babel/register')({ stage: 0 });
+global.Promise = require('bluebird');
+
+const PROCESS = 'query-logs';
+
+require('./index').go();

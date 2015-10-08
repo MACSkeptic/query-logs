@@ -1,0 +1,15 @@
+{
+  "name": "query-logs",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "clean": "rm -f *.log"
+  },
+  "dependencies": {
+    "aws-sdk": "2.1.45",
+    "babel": "5.8.21",
+    "bluebird": "2.9.34",
+    "lodash": "3.10.1",
+    "moment": "2.10.6"
+  }
+}
