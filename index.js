@@ -21,7 +21,6 @@ if (process.env['AWS_ACCESS_KEY_ID']) {
   _.assign(config, { accessKeyId, secretAccessKey, sessionToken })
 }
 
-const bunnies = argv.bunnies !== 'no';
 const logs = new AWS.CloudWatchLogs(config);
 console.log('using:', config, '\n');
 
@@ -31,8 +30,13 @@ Promise.promisifyAll(fs);
 const logFileName = moment.utc().format(`[${argv.app}_log_]YYYY-MM-DDTHH_mm_ss[.log]`);
 
 function createParams() {
-  const filterPattern = argv.level ?
-    `{ $.name = "${argv.app}" && $.level >= ${+argv.level} }` : `{ $.name = "${argv.app}" }`;
+  const { level, app, category } = argv;
+  const filterArray = _.reduce({level, app, category}, (memo, value, key) => {
+    if (!value) { return memo; }
+    const criteria = { app: '$.name = "?"', level: '$.level >= ?', category: '$.category = "?"' }[key];
+    return memo.concat([criteria.replace('?', value)]);
+  }, []);
+  const filterPattern = `{ ${filterArray.join(' && ')} }`;
 
   const startTime = (argv.start && moment(argv.start).valueOf()) ||
     (argv.last && moment().add(-(+argv.last), 'minutes').valueOf()) ||
@@ -46,6 +50,7 @@ function createParams() {
   console.log('=======================================================');
   console.log('-   app:', argv.app);
   console.log('- level:', argv.level ? `>= ${argv.level}` : 'any');
+  console.log('- filter:', filterPattern);
   console.log('- start:', moment(startTime).format());
   console.log('-   end:', moment(endTime).format());
   console.log('-  from:', moment(startTime).fromNow());
@@ -69,22 +74,13 @@ function getLogs(logGroupName, nextToken) {
 }
 
 function contentsFromEvent(event) {
-  if (bunnies) {
-    return event;
-  }
-  try {
-    return JSON.stringify(JSON.parse(event), null, '  ');
-  } catch (e) {
-    return `"${event}"`;
-  }
+  return event;
 }
 
 function writeContentsFrom(events) {
   return Promise.all(_.pluck(events, 'message').map(contentsFromEvent).map(content => {
-    if (bunnies) {
-      return fs.appendFileAsync(logFileName, `${content}\n`, 'utf8');
-    }
-    return fs.appendFileAsync(logFileName, `${content},\n`, 'utf8');
+    console.log(content);
+    return fs.appendFileAsync(logFileName, `${content}\n`, 'utf8');
   }));
 }
 
@@ -108,17 +104,11 @@ function getLogsAndLog(logGroupName, nextToken) {
 }
 
 function open() {
-  if (bunnies) {
-    return fs.writeFileAsync(logFileName, '{}\n', 'utf8');
-  }
-  return fs.writeFileAsync(logFileName, '{"logs": [\n', 'utf8');
+  return fs.writeFileAsync(logFileName, '{}\n', 'utf8');
 }
 
 function close() {
-  if (bunnies) {
-    return fs.appendFileAsync(logFileName, '{}', 'utf8');
-  }
-  return fs.appendFileAsync(logFileName, '""\n]}', 'utf8');
+  return fs.appendFileAsync(logFileName, '{}', 'utf8');
 }
 
 export function go() {
@@ -136,7 +126,7 @@ export function go() {
   }).then(res => {
     return close().thenReturn(res);
   }).then(res => {
-    console.log('\n====\ndone\n====\n\ngo try:\ncat', logFileName, '| prettyjson');
+    console.log('\n====\ndone\n====\n\ngo try:\ncat', logFileName, '| bunyan');
   }).catch(err => {
     console.log(err);
   });
