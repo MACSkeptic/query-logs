@@ -30,10 +30,16 @@ Promise.promisifyAll(fs);
 const logFileName = moment.utc().format(`[${argv.app}_log_]YYYY-MM-DDTHH_mm_ss[.log]`);
 
 function createParams() {
-  const { level, app, category } = argv;
-  const filterArray = _.reduce({level, app, category}, (memo, value, key) => {
+  const { level, app, category, id, ip } = argv;
+  const filterArray = _.reduce({level, app, category, id, ip}, (memo, value, key) => {
     if (!value) { return memo; }
-    const criteria = { app: '$.name = "?"', level: '$.level >= ?', category: '$.category = "?"' }[key];
+    const criteria = {
+      ip: '$.IP = "?"',
+      id: '$.id = "?"',
+      app: '$.name = "?"',
+      level: '$.level >= ?',
+      category: '$.category = "?"'
+    }[key];
     return memo.concat([criteria.replace('?', value)]);
   }, []);
   const filterPattern = `{ ${filterArray.join(' && ')} }`;
